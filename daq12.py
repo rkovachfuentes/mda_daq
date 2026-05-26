@@ -285,7 +285,7 @@ def log_info(csv_file):
             if len(rows) > 1:  # Ensure there is at least one entry beyond headers
                 last_entry = rows[-1]  # Get the last logged entry
 
-    new_entry = [Detector, Channel, Beam, HV, Z, X, Shield, Pulse, Dose, Comment]
+    new_entry = [Detector, Channel, Beam, Z, HV, X, Shield, Pulse, Dose, Comment]
 
     with open(log_file_name, "a", newline="") as log_file:
         writer = csv.writer(log_file)
