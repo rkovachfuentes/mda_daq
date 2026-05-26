@@ -18,6 +18,8 @@ import time
 import threading
 from tkinter import Tk, Button, Label, Frame, Entry
 
+import queue
+
 # Tektronix Oscilloscope Configuration
 ip_address = "10.10.10.2"
 resource_string = f"TCPIP::{ip_address}::INSTR"
@@ -31,6 +33,10 @@ scope.timeout = 200000  # 20 seconds timeout
 # Global control flags
 acquire_data        = False
 channel_2_on        = False # Changed to false 
+
+# thread-safe queue object
+plot_queue = queue.Queue()
+root = Tk()
 
 
 def generate_file_name(directory):
@@ -158,7 +164,10 @@ def acquire_waveform():
             #   print("time_vals_ch1 and time_vals_ch2 are different")
             
             # Update canvas plot
-            #update_canvas()
+            if not channel_2_on:
+                plot_queue.put((time_vals_ch1, voltage_vals_ch1, None, csv_filename))
+            else:
+                plot_queue.put((time_vals_ch1, voltage_vals_ch1, voltage_vals_ch2, csv_filename))
 
             if verbose>3:
                 print("end:before setting state on")
@@ -256,6 +265,31 @@ def get_last_log_entry(log_file_name):
     except Exception as e:
         print(f"Error reading log file: {e}")
         return None
+
+def check_for_plots(root):
+    """Monitors the queue for new waveforms. Runs safely in the GUI thread."""
+    try:
+        # Check if any data has arrived from the DAQ thread
+        while True:
+            time_data, ch1_data, ch2_data, csv_filename = plot_queue.get_nowait()
+            
+            # Clear and plot safely
+            ax.clear()
+            ax.plot(time_data, ch1_data, color="blue")
+            if ch2_data is not None:
+                ax.plot(time_data, ch2_data, color="black")
+                
+            basename = os.path.basename(csv_filename)
+            ax.set_title(f"Waveform {basename}")
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel("Voltage (V)")
+            ax.grid()
+            canvas.draw()
+            
+            plot_queue.task_done()
+    except queue.Empty:
+        pass
+
 #==================================================================================
 #
 #==================================================================================
@@ -420,15 +454,16 @@ def update_dose_in_log(log_file_name, dose_value):
 
 # Start acquisition loop
 def start_acquisition():
-    global acquire_data, look_for_new_file_seconds
+    global acquire_data
     acquire_data = True
     Dose_entry.delete(0, "end")  # Clears the content of the Dose Entry field
     threading.Thread(target=acquire_waveform, daemon=True).start()
-    threading.Thread(target=show_plots, daemon=True).start()
+
+    root.after(100, lambda: check_for_plots(root))
+    
     stop_daq.config(state="normal")
     start_daq.config(state="disabled")
     status_label.config(text="Running")
-    look_for_new_file_seconds=1
 
 # Stop acquisition loop
 def stop_acquisition():
@@ -461,7 +496,6 @@ def create_gui():
     print(f"Data directory: {data_directory}")
     print(f"Log file: {log_file_name}")
 
-    root = Tk()
     root.title("Oscilloscope Control Panel")
     root.geometry("1000x900")  # Set the window size explicitly (w
 
