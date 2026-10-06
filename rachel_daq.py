@@ -162,6 +162,8 @@ def acquire_waveform():
             #else:
             #   print("time_vals_ch1 and time_vals_ch2 are different")
             #   print("time_vals_ch1 and time_vals_ch2 are different")
+
+            csv_filename = generate_file_name(data_directory)
             
             # Update canvas plot
             if not channel_2_on:
@@ -176,7 +178,7 @@ def acquire_waveform():
             # Save data to CSV
             if verbose>1:
                 print("before writting log")
-            csv_filename = generate_file_name(data_directory)
+            
             #csv_filename = "triggered_waveform_data.csv"
             with open(csv_filename, "w", newline="") as csv_file:
                writer = csv.writer(csv_file)
@@ -477,7 +479,7 @@ def stop_acquisition():
 # Main GUI setup
 def create_gui():
     global canvas, figure, ax
-    global data_directory ;
+    global data_directory
     global log_file_name
     global Detector_entry, Channel_entry, Beam_entry, Z_entry, HV_entry, X_entry, Shield_entry, Pulse_entry, Dose_entry, Comment_entry
     global start_daq, stop_daq, status_label, waiting_time
